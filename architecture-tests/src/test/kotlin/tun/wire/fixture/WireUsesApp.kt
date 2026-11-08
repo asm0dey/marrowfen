@@ -1,6 +1,6 @@
 package tun.wire.fixture
 
-import tun.core.Core
+import tun.core.Token
 
 // Violation fixture: nothing depends on app, and wire depends on no project module.
 object WireUsesApp {
@@ -9,5 +9,5 @@ object WireUsesApp {
 
 // Violation fixture: wire depends on Netty only, not on core.
 object WireUsesCore {
-    fun core() = Core
+    fun core() = Token::class
 }

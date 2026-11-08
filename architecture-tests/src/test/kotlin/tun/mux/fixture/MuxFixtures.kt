@@ -2,7 +2,7 @@ package tun.mux.fixture
 
 import io.netty.buffer.ByteBuf
 import io.netty.channel.Channel
-import tun.server.Server
+import tun.server.ServerConfig
 
 // Violation fixture: mux may not use Netty beyond io.netty.buffer.
 object MuxUsesChannel {
@@ -18,5 +18,5 @@ object MuxUsesBuffer {
 
 // Violation fixture: mux sits below the composition roots.
 object MuxUsesServer {
-    fun server() = Server
+    fun server() = ServerConfig::class
 }

@@ -6,9 +6,13 @@ nativeBuildTools = "1.1.18"
 archunit = "1.5.1"
 detekt = "2.0.0-alpha.6"
 junit = "5.14.4"
+# latest ktoml release; built against kotlinx-serialization 1.9 and Kotlin 2.2, both older than ours
+ktoml = "0.7.1"
 
 [libraries]
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+ktoml-core = { module = "com.akuleshov7:ktoml-core", version.ref = "ktoml" }
 netty-buffer = { module = "io.netty:netty-buffer", version.ref = "netty" }
 netty-codec-http = { module = "io.netty:netty-codec-http", version.ref = "netty" }
 netty-codec-http2 = { module = "io.netty:netty-codec-http2", version.ref = "netty" }
@@ -21,6 +25,7 @@ junit-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test-junit5", version.ref = "kotlin" }
 # Gradle plugins, as buildSrc dependencies
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+kotlin-serialization-plugin = { module = "org.jetbrains.kotlin:kotlin-serialization", version.ref = "kotlin" }
 detekt-gradle-plugin = { module = "dev.detekt:detekt-gradle-plugin", version.ref = "detekt" }
 
 [plugins]

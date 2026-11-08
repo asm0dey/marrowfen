@@ -12,10 +12,38 @@ Gradle finds it through its toolchain detection (sdkman, `JAVA_HOME`); toolchain
 ./gradlew build                                    # compile, unit tests, ArchUnit, detekt, rule fixtures
 ./gradlew nativeCompile                            # native executable
 app/build/native/nativeCompile/tun --version       # tun 0.1.0
-app/build/native/nativeCompile/tun server          # "not implemented" on stderr, exit 1
+app/build/native/nativeCompile/tun server          # loads /etc/tun/tun.toml; "listener not implemented" on stderr, exit 1
 ```
 
 No jar is shipped: the only distributable is the native `tun` binary.
+
+## `tun.toml`
+
+`tun server [--config-dir /etc/tun] [--state-dir /var/lib/tun]` reads `<config-dir>/tun.toml` at startup and never
+writes it. A missing or invalid file exits 1 with one line on stderr naming the problem. Unknown keys are ignored.
+
+```toml
+version = 1
+
+[server]
+domain = "tun.example.com"   # required: a bare host name, no scheme, port or path
+bind = "127.0.0.1"           # default
+port = 8000                  # default
+grace = "60s"                # default; durations are positive, like "60s" or "1m"
+ping_interval = "20s"        # default
+
+[[token]]                    # zero or more; with none, every client is rejected
+alias = "laptop"             # unique; the only name logs ever show
+hash = "sha256:<64 hex chars>"
+level = "random"             # "random" or "named"
+created = "2026-11-08"       # optional
+```
+
+Make a token, give the first line to the client, and write the second as `hash = "sha256:<hex>"`:
+
+```sh
+t=$(openssl rand -hex 32); echo "$t"; printf %s "$t" | sha256sum
+```
 
 ## Modules (AD-1)
 

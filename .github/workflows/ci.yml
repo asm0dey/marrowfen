@@ -37,5 +37,9 @@ jobs:
           [ "$actual" = "$expected" ] || { echo "expected '$expected', got '$actual'"; exit 1; }
           set +e; $tun server; code=$?; set -e
           [ "$code" -eq 1 ] || { echo "tun server exited $code, expected 1"; exit 1; }
+          dir=$(mktemp -d)
+          printf 'version = 1\n[server]\ndomain = "tun.example.com"\n' > "$dir/tun.toml"
+          set +e; actual="$($tun server --config-dir "$dir" 2>&1 >/dev/null)"; set -e
+          [ "$actual" = "tun: listener not implemented" ] || { echo "tun server with a valid config said '$actual'"; exit 1; }
       - name: No fat jar
         run: test -z "$(find . -name '*-all.jar' -o -name '*shadow*')"

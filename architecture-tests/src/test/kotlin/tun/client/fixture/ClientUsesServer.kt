@@ -1,8 +1,8 @@
 package tun.client.fixture
 
-import tun.server.Server
+import tun.server.ServerConfig
 
 // Violation fixture: server and client are separate composition roots.
 object ClientUsesServer {
-    fun server() = Server
+    fun server() = ServerConfig::class
 }

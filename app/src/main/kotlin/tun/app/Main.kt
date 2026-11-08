@@ -1,5 +1,6 @@
 package tun.app
 
+import tun.server.runServer
 import java.io.PrintStream
 import kotlin.system.exitProcess
 
@@ -13,9 +14,10 @@ fun main(args: Array<String>) {
     exitProcess(run(args.toList(), System.out, System.err))
 }
 
-/** Dispatches a mode and returns the exit code. Modes are stubs until Stories 1.6 and 1.7. */
+/** Dispatches a mode and returns the exit code. `http` is a stub until Story 1.7. */
 internal fun run(args: List<String>, out: PrintStream, err: PrintStream): Int = when (args.firstOrNull()) {
     "--version" -> 0.also { out.println("tun $VERSION") }
-    "server", "http" -> 1.also { err.println("not implemented") }
+    "server" -> runServer(args.drop(1), err)
+    "http" -> 1.also { err.println("not implemented") }
     else -> 2.also { err.println(USAGE) }
 }
