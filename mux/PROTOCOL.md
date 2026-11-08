@@ -166,6 +166,48 @@ Abnormal termination of a stream, in either direction. A normal end uses `END`, 
 
 Vector: [`reset.hex`](src/test/resources/golden/reset.hex).
 
+## Streams and credit
+
+These rules apply to every stream other than 0. Breaking one fails only that stream, with a `RESET`; the
+[protocol errors](#protocol-errors) above are framing errors and close the connection.
+
+### Stream ids
+
+- Only the server opens streams. Its first id is `1`, and each `OPEN` uses a higher id than the one before; ids are
+  never reused within one WebSocket. After `2^32 - 1` the server cannot open more streams on that connection.
+- The client ignores an `OPEN` whose id is not higher than the highest it has seen. The server ignores every `OPEN`.
+
+### Lifecycle
+
+- A stream starts with `OPEN`. After that each side sends `HEADERS` and `DATA` until it half-closes with `END`
+  (on `OPEN`, `HEADERS` or `DATA`; an empty `DATA` with `END` is allowed). A side sends nothing but
+  `WINDOW_UPDATE` and `RESET` on a stream after its own `END`.
+- `DATA` or `HEADERS` from a side that has already sent `END` is answered with `RESET protocol_error`.
+- Frames that cost no credit are bounded: an empty `DATA` without `END`, and a ninth `HEADERS` without `END` on one
+  stream (eight leave room for 1xx heads and the head), are answered with `RESET protocol_error`.
+- A sender that cannot send a head (a string over 65535 bytes, or a payload over the peer's `maxFrame`) resets that
+  stream with `RESET protocol_error` instead; the connection stays up.
+- A stream is closed once both sides have sent `END`, or once a `RESET` has been sent or received.
+- `DATA`, `HEADERS`, `WINDOW_UPDATE` and `RESET` for a stream that was never opened or is closed are ignored, with no
+  reply. Ignored `DATA` consumes no credit. A `RESET` is never answered.
+- `RESET cancel` means the sender gave up on the stream, for example because its consumer was cancelled.
+
+### Credit
+
+Credit is per stream and per direction, and counts only `DATA` payload bytes; `OPEN`, `HEADERS` and the frame
+headers are free. There is no connection-level window.
+
+- Each side's send window starts at the `window` its peer announced (`HELLO` or `HELLO_OK`), and its receive window
+  at the `window` it announced itself.
+- A sender never sends more `DATA` bytes than its send window, and never a payload over the peer's `maxFrame`. Each
+  `DATA` frame lowers the window by its payload length; at zero the sender waits for `WINDOW_UPDATE`.
+- `WINDOW_UPDATE` raises the sender's window by `increment`. An `increment` of `0` is answered with
+  `RESET protocol_error`; one that would take the window past `2^32 - 1` with `RESET flow_control`.
+- A receiver answers `DATA` beyond the credit it has granted with `RESET flow_control`. It returns credit only once
+  the bytes have been written to the next hop (the backpressure rule), and may send one `WINDOW_UPDATE` per write.
+- Since credit bounds what a peer may send, a receiver buffers at most its window per stream, and a slow stream
+  never holds up the others.
+
 ## Header blocks
 
 The payload of `OPEN` and `HEADERS` is zero or more fields, repeated to the end of the payload (an empty block is

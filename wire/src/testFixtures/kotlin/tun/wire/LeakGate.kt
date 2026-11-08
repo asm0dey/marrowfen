@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.test.fail
 
 /**
- * Fails any wire test that leaks a Netty buffer. Auto-registered (META-INF/services), so the recording factory is
+ * Fails any wire or mux test that leaks a Netty buffer. Auto-registered (META-INF/services), so the recording factory is
  * installed when JUnit loads extensions, before any ByteBuf class creates its leak detector.
  */
 class LeakGate : AfterEachCallback, AfterAllCallback {
