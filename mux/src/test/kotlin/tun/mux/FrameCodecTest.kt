@@ -12,7 +12,8 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 
 class FrameCodecTest {
-    private val maxFrame = 16
+    private val maxBytes = 16
+    private val maxFrame = maxBytes.toUInt()
 
     @Test
     fun `encoding strips hop-by-hop headers and lowercases names`() {
@@ -20,28 +21,28 @@ class FrameCodecTest {
             Header("connection", "close"), Header("keep-alive", "5"), Header("transfer-encoding", "chunked"),
             Header("upgrade", "h2c"), Header("te", "gzip"), Header("te", "trailers"), Header("Host", "a"),
         )
-        val decoded = decode(encode(Frame.Open(1, headers), ByteBufAllocator.DEFAULT), Int.MAX_VALUE)
-        assertEquals(Frame.Open(1, listOf(Header("te", "trailers"), Header("host", "a"))), decoded)
+        val decoded = decode(encode(Frame.Open(1u, headers), ByteBufAllocator.DEFAULT), UInt.MAX_VALUE)
+        assertEquals(Frame.Open(1u, listOf(Header("te", "trailers"), Header("host", "a"))), decoded)
     }
 
     @Test
     fun `encode takes ownership of a DATA payload`() {
         val payload = Unpooled.copiedBuffer("hi", Charsets.UTF_8)
-        encode(Frame.Data(1, payload), ByteBufAllocator.DEFAULT).release()
+        encode(Frame.Data(1u, payload), ByteBufAllocator.DEFAULT).release()
         assertEquals(0, payload.refCnt())
     }
 
     @Test
     fun `a decoded DATA payload is a retained slice the caller releases`() {
-        val input = Unpooled.wrappedBuffer(ByteBufUtil.decodeHexDump("00000001" + "0500" + "00".repeat(maxFrame)))
+        val input = Unpooled.wrappedBuffer(ByteBufUtil.decodeHexDump("00000001" + "0500" + "00".repeat(maxBytes)))
         val data = decode(input, maxFrame) as Frame.Data
-        assertEquals(maxFrame, data.payload.readableBytes())
+        assertEquals(maxBytes, data.payload.readableBytes())
         data.payload.release()
         assertEquals(0, input.refCnt())
     }
 
     @Test
-    fun `a payload over maxFrame is rejected`() = assertRejected("00000001" + "0500" + "00".repeat(maxFrame + 1))
+    fun `a payload over maxFrame is rejected`() = assertRejected("00000001" + "0500" + "00".repeat(maxBytes + 1))
 
     @Test
     fun `truncated frames are rejected`() {
@@ -76,15 +77,22 @@ class FrameCodecTest {
     fun `bad field values are rejected`() {
         assertRejected("00000001" + "0700" + "0000") // RESET code 0
         assertRejected("00000001" + "0700" + "0006") // RESET code 6
-        assertRejected("00000001" + "0600" + "80000000") // increment 2^31
-        assertRejected("80000001" + "0500") // streamId 2^31 + 1
         assertRejected("00000001" + "0600" + "00000001" + "00") // trailing byte after a fixed payload
         assertRejected("00000001" + "0700" + "0001" + "0000") // trailing bytes after RESET
     }
 
     @Test
+    fun `u32 fields use their full range`() {
+        val input = Unpooled.wrappedBuffer(ByteBufUtil.decodeHexDump("ffffffff" + "0600" + "ffffffff"))
+        assertEquals(Frame.WindowUpdate(UInt.MAX_VALUE, UInt.MAX_VALUE), decode(input, maxFrame))
+        val encoded = encode(Frame.WindowUpdate(UInt.MAX_VALUE, UInt.MAX_VALUE), ByteBufAllocator.DEFAULT)
+        assertEquals("ffffffff" + "0600" + "ffffffff", ByteBufUtil.hexDump(encoded))
+        encoded.release()
+    }
+
+    @Test
     fun `strings are length-prefixed in UTF-8 bytes, not chars`() {
-        val frame = Frame.Headers(1, listOf(Header("x", "é€")))
+        val frame = Frame.Headers(1u, listOf(Header("x", "é€")))
         val encoded = encode(frame, ByteBufAllocator.DEFAULT)
         assertEquals(5, encoded.getUnsignedShort(9)) // header 6 + name length 2 + "x" 1
         assertEquals(frame, decode(encoded, maxFrame))
@@ -92,19 +100,11 @@ class FrameCodecTest {
 
     @Test
     fun `an unencodable frame leaks nothing`() {
-        val ping = (Int.MAX_VALUE.toLong() + 1).milliseconds
-        assertEncodeRejected(Frame.Headers(1, listOf(Header("x", "v".repeat(65536)))))
-        assertEncodeRejected(Frame.Headers(1, listOf(Header("x", "é".repeat(32768))))) // 32768 chars, 65536 bytes
-        assertEncodeRejected(Frame.HelloErr(65536, "x"))
-        assertEncodeRejected(Frame.HelloOk("a", "u", 1, 1, ping))
-        assertEncodeRejected(Frame.WindowUpdate(1, -1))
-    }
-
-    @Test
-    fun `a DATA frame with an invalid stream id releases its payload`() {
-        val payload = Unpooled.copiedBuffer("hi", Charsets.UTF_8)
-        assertEncodeRejected(Frame.Data(-1, payload))
-        assertEquals(0, payload.refCnt())
+        val ping = (UInt.MAX_VALUE.toLong() + 1).milliseconds
+        assertEncodeRejected(Frame.Headers(1u, listOf(Header("x", "v".repeat(65536)))))
+        assertEncodeRejected(Frame.Headers(1u, listOf(Header("x", "é".repeat(32768))))) // 32768 chars, 65536 bytes
+        assertEncodeRejected(Frame.HelloOk("a", "u", 1u, 1u, ping))
+        assertEncodeRejected(Frame.HelloOk("a", "u", 1u, 1u, (-1).milliseconds))
     }
 
     private fun assertEncodeRejected(frame: Frame) {

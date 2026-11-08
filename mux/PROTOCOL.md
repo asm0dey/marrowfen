@@ -11,8 +11,7 @@ vectors in [`src/test/resources/golden/`](src/test/resources/golden/) are checke
 - `str` is a `u16` byte length followed by that many bytes of UTF-8. Length 0 is the empty string. A string never
   exceeds 65535 bytes; an encoder must refuse rather than truncate. A receiver decodes malformed UTF-8 with
   U+FFFD replacement characters; it does not reject it.
-- Every `u32` in this protocol (stream ids, windows, `maxFrame`, increments, the ping interval) is at most
-  `2^31 - 1`. A receiver rejects a `u32` field with the top bit set.
+- Every `u32` uses its full range, `0` to `2^32 - 1`.
 
 ## Framing
 
@@ -60,7 +59,6 @@ A receiver treats each of these as a protocol error. The decoder releases the in
 - an unknown type code;
 - a reserved flag bit set, or `END` on a type other than `OPEN`, `HEADERS`, `DATA`;
 - `HELLO`, `HELLO_OK` or `HELLO_ERR` on a stream other than 0, or any other type on stream 0;
-- a `u32` field of `2^31` or more;
 - a `RESET` code outside 1–5;
 - bytes left over after a fixed-size payload (`HELLO*`, `WINDOW_UPDATE`, `RESET`).
 

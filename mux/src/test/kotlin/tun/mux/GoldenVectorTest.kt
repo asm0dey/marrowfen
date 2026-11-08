@@ -15,27 +15,27 @@ class GoldenVectorTest {
 
     // factories, because a Data frame's payload is consumed by encode
     private val vectors: Map<String, () -> Frame> = mapOf(
-        "hello" to { Frame.Hello(1, token, "myapp", 65536, 16384) },
-        "hello-no-name" to { Frame.Hello(1, token, null, 65536, 16384) },
-        "hello-ok" to { Frame.HelloOk("myapp", "https://myapp.example.com", 65536, 16384, 20.seconds) },
-        "hello-err" to { Frame.HelloErr(1, "invalid token") },
+        "hello" to { Frame.Hello(1u, token, "myapp", 65536u, 16384u) },
+        "hello-no-name" to { Frame.Hello(1u, token, null, 65536u, 16384u) },
+        "hello-ok" to { Frame.HelloOk("myapp", "https://myapp.example.com", 65536u, 16384u, 20.seconds) },
+        "hello-err" to { Frame.HelloErr(1u, "invalid token") },
         "open" to {
             val head = listOf(
                 Header(":method", "POST"), Header(":scheme", "https"), authority,
                 Header(":path", "/upload"), Header("content-type", "text/plain"),
             )
-            Frame.Open(1, head)
+            Frame.Open(1u, head)
         },
         "open-end" to {
             val head = listOf(Header(":method", "GET"), Header(":scheme", "https"), authority, Header(":path", "/"))
-            Frame.Open(3, head, end = true)
+            Frame.Open(3u, head, end = true)
         },
-        "headers" to { Frame.Headers(1, listOf(Header(":status", "200"), Header("content-type", "text/plain"))) },
-        "headers-trailers-end" to { Frame.Headers(1, listOf(Header("grpc-status", "0")), end = true) },
-        "data" to { Frame.Data(1, Unpooled.copiedBuffer("hello", Charsets.UTF_8)) },
-        "data-empty-end" to { Frame.Data(1, Unpooled.EMPTY_BUFFER, end = true) },
-        "window-update" to { Frame.WindowUpdate(1, 65536) },
-        "reset" to { Frame.Reset(1, ResetCode.BACKEND_UNREACHABLE) },
+        "headers" to { Frame.Headers(1u, listOf(Header(":status", "200"), Header("content-type", "text/plain"))) },
+        "headers-trailers-end" to { Frame.Headers(1u, listOf(Header("grpc-status", "0")), end = true) },
+        "data" to { Frame.Data(1u, Unpooled.copiedBuffer("hello", Charsets.UTF_8)) },
+        "data-empty-end" to { Frame.Data(1u, Unpooled.EMPTY_BUFFER, end = true) },
+        "window-update" to { Frame.WindowUpdate(1u, 65536u) },
+        "reset" to { Frame.Reset(1u, ResetCode.BACKEND_UNREACHABLE) },
     )
 
     @Test
@@ -61,7 +61,7 @@ class GoldenVectorTest {
     fun `decode yields every vector's frame`() {
         vectors.forEach { (name, frame) ->
             val input = Unpooled.wrappedBuffer(ByteBufUtil.decodeHexDump(hex(name)))
-            val decoded = decode(input, 16384)
+            val decoded = decode(input, 16384u)
             val expected = frame()
             assertEquals(expected, decoded, name)
             (decoded as? Frame.Data)?.payload?.release()
