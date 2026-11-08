@@ -2,7 +2,7 @@ package tun.mux
 
 import io.netty.buffer.ByteBuf
 
-/** One mux frame per message, as `mux/PROTOCOL.md` frames it. Stories 1.6/1.7 implement it over WebSocket. */
+/** One mux frame per message, as `mux/PROTOCOL.md` frames it. [asMuxTransport] implements it over WebSocket. */
 interface MuxTransport {
     /** Sends one message and takes ownership of it, sent or not. */
     suspend fun send(message: ByteBuf)

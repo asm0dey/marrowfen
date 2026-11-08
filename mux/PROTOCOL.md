@@ -71,7 +71,7 @@ Sent by the client, first, on stream 0. The server closes the connection if it d
 | Field      | Type  | Meaning                                                    |
 |------------|-------|------------------------------------------------------------|
 | `version`  | `u16` | protocol version, `1` for this document                    |
-| `token`    | `str` | the token as 64 hex ASCII characters (32 bytes)        |
+| `token`    | `str` | the token as 64 lowercase hex ASCII characters (32 bytes) |
 | `name`     | `str` | requested name; length 0 means none (assign a random one)  |
 | `window`   | `u32` | the client's initial per-stream window, in bytes           |
 | `maxFrame` | `u32` | the largest payload the client accepts, in bytes           |
@@ -105,10 +105,29 @@ The server's answer to a refused `HELLO`, on stream 0, followed by close.
 
 | Field     | Type  | Meaning                                         |
 |-----------|-------|-------------------------------------------------|
-| `code`    | `u16` | error code; values are assigned by the handshake |
+| `code`    | `u16` | error code, see below                           |
 | `message` | `str` | human-readable reason that names the fix        |
 
+| Code | Name                  | When                                                                   |
+|-----:|-----------------------|------------------------------------------------------------------------|
+| 1    | `unsupported_version` | `version` is not `1`                                                   |
+| 2    | `unknown_token`       | the token is not one the server has configured                         |
+| 3    | `bad_hello`           | the first frame is not `HELLO`, or `window` is 0, or `maxFrame` < 16384 |
+
 Vector: [`hello-err.hex`](src/test/resources/golden/hello-err.hex).
+
+### Handshake
+
+- The server reads the first message with its own `maxFrame` (16384) as the limit. A message it cannot decode, or
+  no message within 10 s, closes the connection with no reply.
+- Checks run in this order: not `HELLO` (code 3), `version` (code 1), `window` and `maxFrame` (code 3), token
+  (code 2). The first that fails is the one answered.
+- The token is compared as sent, by its SHA-256. Issued tokens are lowercase hex, so any other text (uppercase hex
+  included) is simply an unknown token. The token never appears in a log, a message or a reply.
+- A requested `name` is ignored in version 1: the server always assigns a random one.
+- The server announces `window` 262144 and `maxFrame` 16384 in `HELLO_OK`. It sends no `OPEN` before `HELLO_OK`.
+- The server closes the connection whenever no WebSocket frame of any kind has arrived for 3 ×
+  `pingInterval`. A compliant client pings every interval, so in practice this is the ping rule above.
 
 ### `OPEN` (3) and `HEADERS` (4)
 

@@ -3,6 +3,8 @@ package tun.app
 import org.junit.jupiter.api.io.TempDir
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
+import java.net.InetAddress
+import java.net.ServerSocket
 import java.nio.file.Path
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -42,10 +44,13 @@ class MainTest {
     }
 
     @Test
-    fun `server with a valid config reaches the listener stub`(@TempDir dir: Path) {
-        dir.resolve("tun.toml").writeText("version = 1\n[server]\ndomain = \"tun.example.com\"\n")
-        assertEquals(1, tun("server", "--config-dir", dir.toString()))
-        assertEquals("tun: listener not implemented", err.toString().trim())
+    fun `server with a valid config reaches the listener, and a taken port exits 1`(@TempDir dir: Path) {
+        ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { taken ->
+            val port = taken.localPort
+            dir.resolve("tun.toml").writeText("version = 1\n[server]\ndomain = \"tun.example.com\"\nport = $port\n")
+            assertEquals(1, tun("server", "--config-dir", dir.toString()))
+            assertContains(err.toString().trim(), "tun: cannot listen on 127.0.0.1:$port (")
+        }
     }
 
     @Test

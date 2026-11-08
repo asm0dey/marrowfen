@@ -20,6 +20,7 @@ internal fun nextStreamId(last: UInt): UInt {
     return last + 1u
 }
 
-internal fun Frame.releasePayload() {
+/** Releases the payload of a [Frame.Data]; any other frame holds no buffer. */
+fun Frame.releasePayload() {
     if (this is Frame.Data) payload.release()
 }

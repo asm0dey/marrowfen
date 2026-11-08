@@ -9,4 +9,14 @@ dependencies {
     implementation(project(":wire"))
     implementation(project(":core"))
     implementation(libs.ktoml.core)
+    implementation(libs.coroutines.core)
+    testImplementation(testFixtures(project(":wire")))
+    testImplementation(libs.netty.buffer) // tests encode mux frames; main code never sees a ByteBuf
+}
+
+tasks.test {
+    // every server test runs under the paranoid leak detector, and the shared LeakGate turns a leak into a failure
+    systemProperty("io.netty.leakDetection.level", "paranoid")
+    systemProperty("junit.jupiter.extensions.autodetection.enabled", "true")
+    systemProperty("jdk.httpclient.allowRestrictedHeaders", "host") // tests send Host to the JDK clients' 127.0.0.1
 }

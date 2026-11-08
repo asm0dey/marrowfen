@@ -1,0 +1,5 @@
+[
+  {"name": "io.netty.buffer.AbstractByteBufAllocator", "allDeclaredMethods": true},
+  {"name": "io.netty.buffer.AdvancedLeakAwareByteBuf", "allDeclaredMethods": true},
+  {"name": "io.netty.util.ReferenceCountUtil", "allDeclaredMethods": true}
+]

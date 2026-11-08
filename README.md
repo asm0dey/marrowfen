@@ -1,7 +1,8 @@
 # tun
 
 A self-hosted, ngrok-style tunnel: one GraalVM native binary with a server and a client mode.
-Story 1.1 is the scaffold: the modes are stubs.
+The server routes requests and accepts client connections; relaying them to the client comes next (Story 1.8).
+The client mode is still a stub.
 
 ## Build and run
 
@@ -12,10 +13,13 @@ Gradle finds it through its toolchain detection (sdkman, `JAVA_HOME`); toolchain
 ./gradlew build                                    # compile, unit tests, ArchUnit, detekt, rule fixtures
 ./gradlew nativeCompile                            # native executable
 app/build/native/nativeCompile/tun --version       # tun 0.1.0
-app/build/native/nativeCompile/tun server          # loads /etc/tun/tun.toml; "listener not implemented" on stderr, exit 1
+app/build/native/nativeCompile/tun server          # loads /etc/tun/tun.toml, then serves on bind:port
 ```
 
 No jar is shipped: the only distributable is the native `tun` binary.
+`app/src/main/resources/META-INF/native-image/tun/app/reflect-config.json` registers three Netty classes' methods:
+Netty looks them up by name at startup, GraalVM does not honour Netty's own hints for them, and without them the
+server cannot bind.
 
 ## `tun.toml`
 
@@ -44,6 +48,20 @@ Make a token, give the first line to the client, and write the second as `hash =
 ```sh
 t=$(openssl rand -hex 32); echo "$t"; printf %s "$t" | sha256sum
 ```
+
+## Serving
+
+`tun server` listens on `bind:port` (default `127.0.0.1:8000`) for plain HTTP/1.1 and WebSocket, with no TLS of its
+own. Put a TLS-terminating proxy (nginx, NPM, Caddy) in front and send it both the apex (`tun.example.com`) and the
+wildcard (`*.tun.example.com`), keeping the `Host` header and allowing WebSocket upgrades. Every request is routed by
+`Host`:
+
+- `tun.example.com/_tun/health` answers `200 ok`, for the proxy's or an uptime check.
+- `tun.example.com/_tun/connect` is the clients' control WebSocket.
+- `<name>.tun.example.com` goes to that client's tunnel; until Story 1.8 it answers `502 tun: relay not implemented`.
+- Anything else is `404`.
+
+If the port cannot be bound, the server exits 1 with one line on stderr.
 
 ## Modules (AD-1)
 

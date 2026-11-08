@@ -71,12 +71,29 @@ class BoundServer internal constructor(private val channel: Channel) {
  * Binds [spec]. Handlers run under one supervisor that is a child of [scope]: a failing handler closes only its
  * own connection, and cancelling [scope] cancels them all. Closing the server lets the supervisor complete.
  */
-suspend fun Wire.start(spec: TcpServerSpec, scope: CoroutineScope): BoundServer {
+suspend fun Wire.start(spec: TcpServerSpec, scope: CoroutineScope): BoundServer =
+    bindServer(spec.host, spec.port, scope) { ch ->
+        val reader = DemandReader()
+        ch.pipeline().addLast(reader)
+        val wire = WireChannel(ch, reader)
+        // invokeOnCompletion also covers a scope cancelled before the handler starts
+        launch { spec.handler(wire) }.invokeOnCompletion { wire.abort() }
+    }
+
+/** Binds [host]:[port] and runs [accept] for each new channel, in the handler scope described at [Wire.start]. */
+internal suspend fun Wire.bindServer(
+    host: String,
+    port: Int,
+    scope: CoroutineScope,
+    accept: CoroutineScope.(Channel) -> Unit,
+): BoundServer {
     val supervisor = SupervisorJob(scope.coroutineContext[Job])
     val handlers = CoroutineScope(scope.coroutineContext + supervisor)
     val bootstrap = ServerBootstrap().group(loop).channel(NioServerSocketChannel::class.java)
-        .childHandler(acceptor(spec.handler, handlers))
-    val bind = bootstrap.bind(spec.host, spec.port)
+        .childHandler(object : ChannelInitializer<Channel>() {
+            override fun initChannel(ch: Channel) = handlers.accept(ch)
+        })
+    val bind = bootstrap.bind(host, port)
     bind.channel().closeFuture().addListener { supervisor.complete() } // also fires when bind fails
     return BoundServer(bind.awaitOrClose())
 }
@@ -85,14 +102,4 @@ suspend fun Wire.connect(spec: TcpClientSpec): WireChannel {
     val reader = DemandReader()
     val bootstrap = Bootstrap().group(loop).channel(NioSocketChannel::class.java).handler(reader)
     return WireChannel(bootstrap.connect(spec.host, spec.port).awaitOrClose(), reader)
-}
-
-private fun acceptor(handler: ConnectionHandler, scope: CoroutineScope) = object : ChannelInitializer<Channel>() {
-    override fun initChannel(ch: Channel) {
-        val reader = DemandReader()
-        ch.pipeline().addLast(reader)
-        val wire = WireChannel(ch, reader)
-        // invokeOnCompletion also covers a scope cancelled before the handler starts
-        scope.launch { handler(wire) }.invokeOnCompletion { wire.abort() }
-    }
 }

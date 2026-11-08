@@ -38,8 +38,15 @@ jobs:
           set +e; $tun server; code=$?; set -e
           [ "$code" -eq 1 ] || { echo "tun server exited $code, expected 1"; exit 1; }
           dir=$(mktemp -d)
-          printf 'version = 1\n[server]\ndomain = "tun.example.com"\n' > "$dir/tun.toml"
-          set +e; actual="$($tun server --config-dir "$dir" 2>&1 >/dev/null)"; set -e
-          [ "$actual" = "tun: listener not implemented" ] || { echo "tun server with a valid config said '$actual'"; exit 1; }
+          printf 'version = 1\n[server]\ndomain = "tun.example.com"\nport = 18080\n' > "$dir/tun.toml"
+          $tun server --config-dir "$dir" & pid=$!
+          trap 'kill $pid 2>/dev/null' EXIT
+          for _ in $(seq 50); do actual="$(curl -fsS -H 'Host: tun.example.com' 127.0.0.1:18080/_tun/health)" && break; sleep 0.1; done
+          [ "$actual" = "ok" ] || { echo "/_tun/health said '$actual', expected 'ok'"; exit 1; }
+          status="$(curl -s -i --max-time 2 -H 'Host: tun.example.com' -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
+            -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
+            127.0.0.1:18080/_tun/connect | head -1 | tr -d '\r')" || true
+          [ "$(echo "$status" | cut -d' ' -f2)" = "101" ] || { echo "/_tun/connect upgrade said '$status', expected 101"; exit 1; }
+          kill $pid
       - name: No fat jar
         run: test -z "$(find . -name '*-all.jar' -o -name '*shadow*')"
