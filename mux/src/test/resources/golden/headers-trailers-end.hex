@@ -1,0 +1,9 @@
+# HEADERS with END: stream 1, trailers
+# Normative: mux/PROTOCOL.md. Hex digits only; whitespace and '#' comments are ignored.
+00000001                # streamId 1
+04                      # type 4 HEADERS
+01                      # flags END
+000b                    # name length 11
+677270632d737461747573  # name "grpc-status"
+0001                    # value length 1
+30                      # value "0"

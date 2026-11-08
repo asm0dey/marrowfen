@@ -1,0 +1,6 @@
+# WINDOW_UPDATE: stream 1, increment 65536
+# Normative: mux/PROTOCOL.md. Hex digits only; whitespace and '#' comments are ignored.
+00000001  # streamId 1
+06        # type 6 WINDOW_UPDATE
+00        # flags none
+00010000  # increment 65536

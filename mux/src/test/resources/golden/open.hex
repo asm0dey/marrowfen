@@ -1,0 +1,26 @@
+# OPEN: stream 1, POST head, body follows
+# Normative: mux/PROTOCOL.md. Hex digits only; whitespace and '#' comments are ignored.
+00000001                          # streamId 1
+03                                # type 3 OPEN
+00                                # flags none
+0007                              # name length 7
+3a6d6574686f64                    # name ":method"
+0004                              # value length 4
+504f5354                          # value "POST"
+0007                              # name length 7
+3a736368656d65                    # name ":scheme"
+0005                              # value length 5
+6874747073                        # value "https"
+000a                              # name length 10
+3a617574686f72697479              # name ":authority"
+0011                              # value length 17
+6d796170702e6578616d706c652e636f  # value "myapp.example.com"
+6d                                # (continued)
+0005                              # name length 5
+3a70617468                        # name ":path"
+0007                              # value length 7
+2f75706c6f6164                    # value "/upload"
+000c                              # name length 12
+636f6e74656e742d74797065          # name "content-type"
+000a                              # value length 10
+746578742f706c61696e              # value "text/plain"

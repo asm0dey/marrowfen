@@ -1,0 +1,13 @@
+# HELLO_OK: name, URL, window 65536, maxFrame 16384, pingInterval 20 s
+# Normative: mux/PROTOCOL.md. Hex digits only; whitespace and '#' comments are ignored.
+00000000                          # streamId 0
+01                                # type 1 HELLO_OK
+00                                # flags none
+0005                              # name length 5
+6d79617070                        # name "myapp"
+0019                              # url length 25
+68747470733a2f2f6d796170702e6578  # url "https://myapp.example.com"
+616d706c652e636f6d                # (continued)
+00010000                          # window 65536
+00004000                          # maxFrame 16384
+00004e20                          # pingInterval 20000 ms

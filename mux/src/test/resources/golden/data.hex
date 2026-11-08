@@ -1,0 +1,6 @@
+# DATA: stream 1, payload "hello"
+# Normative: mux/PROTOCOL.md. Hex digits only; whitespace and '#' comments are ignored.
+00000001    # streamId 1
+05          # type 5 DATA
+00          # flags none
+68656c6c6f  # payload "hello"

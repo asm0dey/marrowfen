@@ -1,0 +1,14 @@
+# HELLO: version 1, token, no name (random), window 65536, maxFrame 16384
+# Normative: mux/PROTOCOL.md. Hex digits only; whitespace and '#' comments are ignored.
+00000000                          # streamId 0
+00                                # type 0 HELLO
+00                                # flags none
+0001                              # version 1
+0040                              # token length 64
+30313233343536373839616263646566  # token "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+30313233343536373839616263646566  # (continued)
+30313233343536373839616263646566  # (continued)
+30313233343536373839616263646566  # (continued)
+0000                              # name length 0
+00010000                          # window 65536
+00004000                          # maxFrame 16384

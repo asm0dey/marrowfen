@@ -1,0 +1,6 @@
+# RESET: stream 1, code 2 backend_unreachable
+# Normative: mux/PROTOCOL.md. Hex digits only; whitespace and '#' comments are ignored.
+00000001  # streamId 1
+07        # type 7 RESET
+00        # flags none
+0002      # code 2 backend_unreachable

@@ -1,0 +1,13 @@
+# HEADERS: stream 1, response head
+# Normative: mux/PROTOCOL.md. Hex digits only; whitespace and '#' comments are ignored.
+00000001                  # streamId 1
+04                        # type 4 HEADERS
+00                        # flags none
+0007                      # name length 7
+3a737461747573            # name ":status"
+0003                      # value length 3
+323030                    # value "200"
+000c                      # name length 12
+636f6e74656e742d74797065  # name "content-type"
+000a                      # value length 10
+746578742f706c61696e      # value "text/plain"

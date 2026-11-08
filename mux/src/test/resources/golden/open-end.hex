@@ -1,0 +1,22 @@
+# OPEN with END: stream 3, GET head, no body
+# Normative: mux/PROTOCOL.md. Hex digits only; whitespace and '#' comments are ignored.
+00000003                          # streamId 3
+03                                # type 3 OPEN
+01                                # flags END
+0007                              # name length 7
+3a6d6574686f64                    # name ":method"
+0003                              # value length 3
+474554                            # value "GET"
+0007                              # name length 7
+3a736368656d65                    # name ":scheme"
+0005                              # value length 5
+6874747073                        # value "https"
+000a                              # name length 10
+3a617574686f72697479              # name ":authority"
+0011                              # value length 17
+6d796170702e6578616d706c652e636f  # value "myapp.example.com"
+6d                                # (continued)
+0005                              # name length 5
+3a70617468                        # name ":path"
+0001                              # value length 1
+2f                                # value "/"

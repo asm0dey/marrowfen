@@ -1,0 +1,8 @@
+# HELLO_ERR: code 1, message "invalid token"
+# Normative: mux/PROTOCOL.md. Hex digits only; whitespace and '#' comments are ignored.
+00000000                    # streamId 0
+02                          # type 2 HELLO_ERR
+00                          # flags none
+0001                        # code 1
+000d                        # message length 13
+696e76616c696420746f6b656e  # message "invalid token"
