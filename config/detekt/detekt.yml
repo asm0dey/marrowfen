@@ -1,0 +1,24 @@
+# Layered on detekt's default config (buildUponDefaultConfig = true); only the readability budgets live here.
+
+config:
+  # :detekt-rules lints itself (and the hot-path fixtures) without its own plugin loaded
+  excludes: ['tun']
+
+complexity:
+  # AD-3: hot paths stay small. Scoped to wire and mux production code only;
+  # detekt-rules/src/fixtures proves the scoping (see :detekt-rules:verifyHotPathFixtures).
+  LongMethod:
+    active: true
+    allowedLines: 20
+    includes: ['**/wire/src/main/**', '**/mux/src/main/**']
+  NestedBlockDepth:
+    active: true
+    allowedDepth: 3
+    includes: ['**/wire/src/main/**', '**/mux/src/main/**']
+
+# AD-2: custom rule set from :detekt-rules
+tun:
+  active: true
+  DslBlockBudget:
+    active: true
+    allowedStatements: 5

@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # Linux amd64
+    steps:
+      - uses: actions/checkout@v4
+      # GraalVM CE graal-25.4.4.1.1 is the one JDK for compile, tests and native-image (see README).
+      # Installed from the release tarball: its "25i4" asset naming is not one setup-graalvm resolves.
+      - name: Install GraalVM CE graal-25.4.4.1.1
+        run: |
+          url=https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.4.4.1.1/graalvm-community-jdk-25i4-25.0.4.1.1_linux-x64_bin.tar.gz
+          curl -fsSL "$url" -o graalvm.tgz
+          echo "05ccbbe783210b6886ff7b08fcd0b061c5dce4852b05db87284fc0e24abb08e2  graalvm.tgz" | sha256sum -c -
+          mkdir -p "$RUNNER_TOOL_CACHE/graalvm" && tar -xzf graalvm.tgz -C "$RUNNER_TOOL_CACHE/graalvm" --strip-components=1
+          echo "JAVA_HOME=$RUNNER_TOOL_CACHE/graalvm" >> "$GITHUB_ENV"
+          echo "GRAALVM_HOME=$RUNNER_TOOL_CACHE/graalvm" >> "$GITHUB_ENV"
+          echo "$RUNNER_TOOL_CACHE/graalvm/bin" >> "$GITHUB_PATH"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build (unit tests, ArchUnit, detekt, rule fixtures)
+        run: ./gradlew build
+      - name: Native image
+        run: ./gradlew nativeCompile
+      - name: Smoke test the binary
+        run: |
+          tun=app/build/native/nativeCompile/tun
+          expected="tun $(sed -n 's/^version=//p' gradle.properties)"
+          actual="$($tun --version)"
+          [ "$actual" = "$expected" ] || { echo "expected '$expected', got '$actual'"; exit 1; }
+          set +e; $tun server; code=$?; set -e
+          [ "$code" -eq 1 ] || { echo "tun server exited $code, expected 1"; exit 1; }
+      - name: No fat jar
+        run: test -z "$(find . -name '*-all.jar' -o -name '*shadow*')"

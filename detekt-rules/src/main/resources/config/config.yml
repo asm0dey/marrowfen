@@ -1,0 +1,5 @@
+tun:
+  active: true
+  DslBlockBudget:
+    active: true
+    allowedStatements: 5
