@@ -15,7 +15,11 @@ class MainTest {
     private val out = ByteArrayOutputStream()
     private val err = ByteArrayOutputStream()
 
-    private fun tun(vararg args: String) = run(args.toList(), PrintStream(out, true), PrintStream(err, true))
+    @TempDir
+    lateinit var home: Path
+
+    private fun tun(vararg args: String) =
+        run(args.toList(), PrintStream(out, true), PrintStream(err, true), home.resolve("config.toml"))
 
     @Test
     fun `version prints the version and exits 0`() {
@@ -24,10 +28,16 @@ class MainTest {
     }
 
     @Test
-    fun `http is a stub that reports not implemented on stderr`() {
+    fun `http without a login names the fix and exits 1`() {
         assertEquals(1, tun("http", "8080"))
-        assertEquals("not implemented", err.toString().trim())
+        assertEquals("tun: not logged in; run tun login <server-url> <token>", err.toString().trim())
         assertEquals("", out.toString())
+    }
+
+    @Test
+    fun `login with the wrong argument count prints its usage and exits 2`() {
+        assertEquals(2, tun("login", "wss://tun.example.com"))
+        assertEquals("usage: tun login <server-url> <token>", err.toString().trim())
     }
 
     @Test
@@ -64,7 +74,7 @@ class MainTest {
         for (args in listOf(emptyArray(), arrayOf("bogus"))) {
             err.reset()
             assertEquals(2, tun(*args))
-            listOf("server", "http", "--version").forEach { assertContains(err.toString(), it) }
+            listOf("server", "login", "http", "--version").forEach { assertContains(err.toString(), it) }
         }
     }
 }

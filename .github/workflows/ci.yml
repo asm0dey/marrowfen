@@ -47,6 +47,20 @@ jobs:
             -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
             127.0.0.1:18080/_tun/connect | head -1 | tr -d '\r')" || true
           [ "$(echo "$status" | cut -d' ' -f2)" = "101" ] || { echo "/_tun/connect upgrade said '$status', expected 101"; exit 1; }
-          kill $pid
+          kill $pid; wait $pid 2>/dev/null || true
+          # client: tun login, then tun http prints the public URL
+          tok=$(openssl rand -hex 32)
+          printf 'version = 1\n[server]\ndomain = "localhost"\nport = 18080\n[[token]]\nalias = "ci"\nhash = "sha256:%s"\nlevel = "random"\n' \
+            "$(printf %s "$tok" | sha256sum | cut -d' ' -f1)" > "$dir/tun.toml"
+          $tun server --config-dir "$dir" & pid=$!
+          for _ in $(seq 50); do curl -fsS -H 'Host: localhost' 127.0.0.1:18080/_tun/health >/dev/null && break; sleep 0.1; done
+          home=$(mktemp -d)
+          env -u XDG_CONFIG_HOME HOME=$home $tun login ws://localhost:18080 "$tok"
+          [ "$(stat -c %a "$home/.config/tun/config.toml")" = "600" ] || { echo "config.toml is not 0600"; exit 1; }
+          env -u XDG_CONFIG_HOME HOME=$home $tun http 8080 > "$home/out" 2> "$home/err" & cpid=$!
+          trap 'kill $pid $cpid 2>/dev/null' EXIT
+          for _ in $(seq 50); do grep -qE '^https://[a-z2-7]{8,}\.localhost$' "$home/out" && break; sleep 0.1; done
+          grep -qE '^https://[a-z2-7]{8,}\.localhost$' "$home/out" || { echo "tun http said '$(cat "$home/out")' / '$(cat "$home/err")'"; exit 1; }
+          kill $cpid $pid
       - name: No fat jar
         run: test -z "$(find . -name '*-all.jar' -o -name '*shadow*')"

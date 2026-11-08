@@ -1,8 +1,8 @@
 # tun
 
 A self-hosted, ngrok-style tunnel: one GraalVM native binary with a server and a client mode.
-The server routes requests and accepts client connections; relaying them to the client comes next (Story 1.8).
-The client mode is still a stub.
+The server routes requests and accepts client connections, and the client connects and gets its public URL;
+relaying requests through the tunnel comes next (Story 1.8).
 
 ## Build and run
 
@@ -62,6 +62,35 @@ wildcard (`*.tun.example.com`), keeping the `Host` header and allowing WebSocket
 - Anything else is `404`.
 
 If the port cannot be bound, the server exits 1 with one line on stderr.
+
+## Client
+
+```sh
+tun login wss://tun.example.com <token>   # once: saves the server URL and token, contacts nothing
+tun http 8080                             # connects, prints https://<name>.tun.example.com, stays up
+```
+
+The client runs on Linux, macOS and Windows (the server on Linux only). `tun login` writes `server` and `token` to
+`config.toml` in the user config directory:
+
+| OS | Path |
+|----|------|
+| Linux | `$XDG_CONFIG_HOME/tun/config.toml` if that is set and absolute, else `$HOME/.config/tun/config.toml` |
+| macOS | `$HOME/Library/Application Support/tun/config.toml` |
+| Windows | `%APPDATA%\tun\config.toml` |
+
+The file is private to you from the moment it exists. On Linux and macOS it is mode `0600`, in a directory created
+`0700`. On Windows it gets an ACL that grants only the current user full control, with no inherited entries. It is
+written to a temp file in the same directory, then moved into place atomically, and logging in again replaces it. If
+it cannot be written, for example on a file system that supports neither POSIX permissions nor ACLs, `tun login`
+prints one `tun: cannot write <path> (<why>); check its permissions` line. Only `wss://<host>[:port]` is accepted, with no path; `ws://` only for
+`localhost[:port]`, for a server on the same machine. `wss://` checks the server certificate against the default trust
+store and the host name; there is no option to skip that. The token is never printed.
+
+`tun http <port>` opens `<server>/_tun/connect`, sends HELLO with the saved token, prints the public URL alone on
+stdout and keeps the connection alive with a WebSocket ping every server-given interval (default 20 s); after 3
+silent intervals it exits 1. Any failure is one `tun: ...` line on stderr naming the fix. Until Story 1.8 nothing is
+relayed to `<port>`: requests to the URL get `502`, and streams the server opens are reset.
 
 ## Modules (AD-1)
 

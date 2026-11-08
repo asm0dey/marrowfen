@@ -62,6 +62,7 @@ fun tcpClient(block: TcpClientBuilder.() -> Unit): TcpClientSpec = TcpClientBuil
 class BoundServer internal constructor(private val channel: Channel) {
     val port: Int get() = (channel.localAddress() as InetSocketAddress).port
 
+    /** Stops accepting. The OS frees the port a moment later, when the event loop deregisters the socket. */
     suspend fun close() {
         channel.close().awaitOrClose()
     }

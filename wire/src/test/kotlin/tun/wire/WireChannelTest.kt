@@ -193,7 +193,11 @@ class WireChannelTest {
         val server = serverChannel(wire, handlers)
         val port = server.bound.port
         server.bound.close()
-        ServerSocket(port).close()
+        // NIO frees a selector-registered socket only when the event loop next deregisters it, so poll briefly
+        val freed = (1..PORT_FREE_TRIES).any { attempt ->
+            runCatching { ServerSocket(port).close() }.isSuccess.also { if (!it) delay(attempt.toLong()) }
+        }
+        assertTrue(freed, "port $port still bound after close")
     }
 
     @Test
@@ -308,6 +312,7 @@ class WireChannelTest {
 
     private companion object {
         const val SETTLE_MS = 300L
+        const val PORT_FREE_TRIES = 30 // about 0.5 s in total
         const val BIG_WRITE = 64 * 1024 * 1024
 
         fun bytes(size: Int): ByteBuf = Unpooled.copiedBuffer(Random.nextBytes(size))

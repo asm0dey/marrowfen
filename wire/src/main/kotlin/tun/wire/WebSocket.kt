@@ -26,7 +26,10 @@ import io.netty.util.ReferenceCountUtil
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
 
-/** A server-side WebSocket that carries binary messages only. Netty reads only while a coroutine waits in [receive]. */
+/**
+ * A WebSocket, server or client side, that carries binary messages only. Netty reads only while a coroutine waits in
+ * [receive].
+ */
 class WebSocket internal constructor(private val netty: Channel, private val reader: MessageReader) {
     /** The next whole binary message (continuations reassembled), owned by the caller, or `null` at close. */
     suspend fun receive(): ByteBuf? {
@@ -40,6 +43,25 @@ class WebSocket internal constructor(private val netty: Channel, private val rea
     /** Sends [message] as one binary message and takes ownership of it, sent or not. */
     suspend fun send(message: ByteBuf) {
         netty.writeAndFlush(BinaryWebSocketFrame(message)).awaitOrClose()
+    }
+
+    /**
+     * Client side only, called once after HELLO_OK: a server socket already has its idle handler, and a second call
+     * would add another. Pings every [interval] from now on, and closes when no inbound frame of any kind has arrived
+     * for 3 x [interval]. A fixed rate, not writer-idle: busy writes must not suppress the pings the peer's idle rule
+     * depends on. On a connection that has already closed it does nothing: the reader sees EOF.
+     */
+    fun keepAlive(interval: Duration) {
+        val millis = interval.inWholeMilliseconds.coerceAtLeast(1)
+        val idle = IdleStateHandler(millis * DEAD_AFTER_INTERVALS, 0, 0, TimeUnit.MILLISECONDS)
+        try {
+            netty.pipeline().addBefore(CONTROL, IDLE, idle)
+        } catch (_: NoSuchElementException) { // closed: Netty has emptied the pipeline
+            return
+        }
+        val ping = { netty.writeAndFlush(PingWebSocketFrame()); Unit }
+        val pings = netty.eventLoop().scheduleAtFixedRate(ping, millis, millis, TimeUnit.MILLISECONDS)
+        netty.closeFuture().addListener { pings.cancel(false) }
     }
 
     /** Sends a close frame, then closes the connection. */
@@ -65,9 +87,9 @@ internal suspend fun HttpConnection.upgrade(request: HttpRequest, maxMessage: In
     val handshaker = WebSocketServerHandshaker13("ws://${request.headers()[HttpHeaderNames.HOST]}", null, config)
     // installed before the 101 goes out, so no frame can pass unchecked
     val idle = IdleStateHandler(idleTimeout.inWholeMilliseconds.coerceAtLeast(1), 0, 0, TimeUnit.MILLISECONDS)
-    netty.pipeline().addBefore(READER, "idle", idle)
-        .addBefore(READER, "control", WebSocketControl())
-        .addBefore(READER, "aggregator", WebSocketFrameAggregator(maxMessage))
+    netty.pipeline().addBefore(READER, IDLE, idle)
+        .addBefore(READER, CONTROL, WebSocketControl())
+        .addBefore(READER, AGGREGATOR, WebSocketFrameAggregator(maxMessage))
     val head = DefaultFullHttpRequest(
         request.protocolVersion(), request.method(), request.uri(), Unpooled.EMPTY_BUFFER,
         request.headers(), EmptyHttpHeaders.INSTANCE,
@@ -76,8 +98,13 @@ internal suspend fun HttpConnection.upgrade(request: HttpRequest, maxMessage: In
     return WebSocket(netty, reader)
 }
 
+internal const val IDLE = "idle"
+internal const val CONTROL = "control"
+internal const val AGGREGATOR = "aggregator"
+private const val DEAD_AFTER_INTERVALS = 3
+
 /** Answers pings, echoes a close, and closes on a text message or when the peer has been idle too long. */
-private class WebSocketControl : ChannelInboundHandlerAdapter() {
+internal class WebSocketControl : ChannelInboundHandlerAdapter() {
     override fun channelRead(ctx: ChannelHandlerContext, msg: Any) {
         when (msg) {
             is PingWebSocketFrame -> ctx.writeAndFlush(PongWebSocketFrame(msg.content()))
