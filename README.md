@@ -16,6 +16,20 @@ app/build/native/nativeCompile/tun --version       # tun 0.1.0
 app/build/native/nativeCompile/tun server          # loads /etc/tun/tun.toml, then serves on bind:port
 ```
 
+On macOS arm64 and Windows amd64 only the client is supported (`tun login`, `tun http`); the server is Linux-only.
+Install the same GraalVM CE 25 build for that OS and point `JAVA_HOME` at it (on macOS, the JDK is under
+`Contents/Home`). On Windows, `native-image` also needs the Visual Studio 2022 Build Tools (the C++ workload), and the
+binary is `tun.exe`. CI builds and tests those two the same way:
+
+```sh
+./gradlew :wire:test :mux:test :client:test :app:nativeCompile
+app/build/native/nativeCompile/tun login wss://tun.example.com <token>   # tun.exe on Windows
+```
+
+`tun login` writes `tun/config.toml` in the user config directory, readable only by the user: Linux
+`$XDG_CONFIG_HOME` or `~/.config` and macOS `~/Library/Application Support`, both mode `0600`; Windows `%APPDATA%`,
+with an ACL holding one entry for the user and nothing inherited.
+
 No jar is shipped: the only distributable is the native `tun` binary.
 `app/src/main/resources/META-INF/native-image/tun/app/reflect-config.json` registers three Netty classes' methods:
 Netty looks them up by name at startup, GraalVM does not honour Netty's own hints for them, and without them the

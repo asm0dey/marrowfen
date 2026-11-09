@@ -6,6 +6,8 @@ import java.io.PrintStream
 import java.nio.file.FileSystems
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.AclEntryType
+import java.nio.file.attribute.AclFileAttributeView
 import java.nio.file.attribute.PosixFilePermissions
 import kotlin.io.path.exists
 import kotlin.io.path.listDirectoryEntries
@@ -14,6 +16,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 /** The login rows of the I/O matrix in the Story 1.7 spec. */
 class LoginTest {
@@ -32,8 +35,7 @@ class LoginTest {
         assertEquals(0, login("wss://tun.example.com/", TOKEN))
         assertEquals("saved wss://tun.example.com to $file", out.toString().trim())
         assertEquals("", err.toString())
-        assertEquals("rw-------", mode(file))
-        assertEquals("rwx------", mode(file.parent))
+        assertPrivate(file)
         val saved = loadLogin(file)
         assertEquals("wss://tun.example.com", saved?.server)
         assertEquals(TOKEN, saved?.token)
@@ -61,7 +63,7 @@ class LoginTest {
         assertEquals(0, login("wss://two.example.com:8443", "other"))
         assertEquals("wss://two.example.com:8443", loadLogin(file)?.server)
         assertEquals("other", loadLogin(file)?.token)
-        assertEquals("rw-------", mode(file))
+        assertPrivate(file)
     }
 
     @Test
@@ -103,9 +105,10 @@ class LoginTest {
     fun `config path - per OS`() {
         val home = mapOf("HOME" to "/home/me")
         assertEquals(Path.of("/home/me/.config/tun/config.toml"), configFileFor("Linux", home, "/pw/me"))
+        val xdg = this.home.resolve("xdg").toString() // absolute on every OS; "/xdg" is relative on Windows
         assertEquals(
-            Path.of("/xdg/tun/config.toml"),
-            configFileFor("Linux", home + ("XDG_CONFIG_HOME" to "/xdg"), "/pw/me"),
+            Path.of(xdg, "tun", "config.toml"),
+            configFileFor("Linux", home + ("XDG_CONFIG_HOME" to xdg), "/pw/me"),
         )
         assertEquals( // a relative XDG_CONFIG_HOME is ignored, as is an empty HOME
             Path.of("/pw/me/.config/tun/config.toml"),
@@ -146,7 +149,29 @@ class LoginTest {
         }
     }
 
+    /** Private as the file system can say it: 0600 in a 0700 directory, else one ALLOW entry for the user alone. */
+    private fun assertPrivate(file: Path) {
+        val views = file.fileSystem.supportedFileAttributeViews()
+        when {
+            "posix" in views -> {
+                assertEquals("rw-------", mode(file))
+                assertEquals("rwx------", mode(file.parent))
+            }
+            "acl" in views -> assertOwnerAcl(file)
+            else -> fail("neither posix nor acl in $views")
+        }
+    }
+
     private fun mode(path: Path) = PosixFilePermissions.toString(Files.getPosixFilePermissions(path))
+
+    private fun assertOwnerAcl(file: Path) {
+        val acl = Files.getFileAttributeView(file, AclFileAttributeView::class.java).acl
+        val user = file.fileSystem.userPrincipalLookupService.lookupPrincipalByName(System.getProperty("user.name"))
+        val entry = acl.singleOrNull() ?: fail("expected one ACL entry, got $acl") // an inherited entry is a second one
+        assertEquals(AclEntryType.ALLOW, entry.type())
+        assertEquals(user, entry.principal())
+        assertEquals(emptySet(), entry.flags(), "inheritance flags")
+    }
 
     private companion object {
         val TOKEN = "0f".repeat(32)

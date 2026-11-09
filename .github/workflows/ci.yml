@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: ['**'] # a story branch is proven before it merges
   pull_request:
 
 permissions:
@@ -64,3 +64,61 @@ jobs:
           kill $cpid $pid
       - name: No fat jar
         run: test -z "$(find . -name '*-all.jar' -o -name '*shadow*')"
+
+  # client only on macOS and Windows: native-image cannot cross-compile, so each OS builds and tests on its own runner
+  client-macos:
+    runs-on: macos-15 # macOS arm64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GraalVM CE graal-25.4.4.1.1
+        run: |
+          url=https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.4.4.1.1/graalvm-community-jdk-25i4-25.0.4.1.1_macos-aarch64_bin.tar.gz
+          curl -fsSL "$url" -o graalvm.tgz
+          echo "4ec9932aa4aab1afca0ea31982d32d6f956615c61fe21a227b49756b25adda4f  graalvm.tgz" | shasum -a 256 -c -
+          mkdir -p "$RUNNER_TOOL_CACHE/graalvm" && tar -xzf graalvm.tgz -C "$RUNNER_TOOL_CACHE/graalvm" --strip-components=1
+          home="$RUNNER_TOOL_CACHE/graalvm/Contents/Home"
+          echo "JAVA_HOME=$home" >> "$GITHUB_ENV"
+          echo "GRAALVM_HOME=$home" >> "$GITHUB_ENV"
+          echo "$home/bin" >> "$GITHUB_PATH"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests and native image
+        run: ./gradlew :wire:test :mux:test :client:test :app:nativeCompile
+      - name: The privacy tests ran, none skipped
+        run: |
+          xml=client/build/test-results/test/TEST-tun.client.LoginTest.xml
+          grep -o '<testcase name="login[^"]*0600[^"]*"' "$xml"
+          ! grep -q '<skipped' "$xml"
+      - name: Client smoke test
+        run: .github/scripts/client-smoke.sh app/build/native/nativeCompile/tun
+
+  client-windows:
+    runs-on: windows-latest # Windows amd64
+    defaults:
+      run:
+        shell: bash # Git Bash, so the smoke script is the macOS one
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GraalVM CE graal-25.4.4.1.1
+        run: |
+          url=https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.4.4.1.1/graalvm-community-jdk-25i4-25.0.4.1.1_windows-x64_bin.zip
+          curl -fsSL "$url" -o graalvm.zip
+          echo "2733ea1331f1a98b05dd55a768b07347051dad48f030dbbfa191b11a2ccf4144  graalvm.zip" | sha256sum -c -
+          tmp=$(mktemp -d) && 7z x -y -bd -o"$tmp" graalvm.zip > /dev/null
+          home="$(cygpath -u "$RUNNER_TOOL_CACHE")/graalvm"
+          mv "$tmp"/* "$home"
+          echo "JAVA_HOME=$(cygpath -w "$home")" >> "$GITHUB_ENV"
+          echo "GRAALVM_HOME=$(cygpath -w "$home")" >> "$GITHUB_ENV"
+          echo "$(cygpath -w "$home/bin")" >> "$GITHUB_PATH"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests and native image
+        run: ./gradlew :wire:test :mux:test :client:test :app:nativeCompile
+      - name: The privacy tests ran, none skipped
+        run: |
+          xml=client/build/test-results/test/TEST-tun.client.LoginTest.xml
+          grep -o '<testcase name="login[^"]*0600[^"]*"' "$xml"
+          ! grep -q '<skipped' "$xml"
+      - name: Client smoke test
+        run: .github/scripts/client-smoke.sh app/build/native/nativeCompile/tun.exe

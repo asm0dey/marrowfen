@@ -268,7 +268,8 @@ class ClientTest {
     /** A TLS server with a self-signed certificate for [name], which no default trust store holds, and its keys. */
     private fun tlsServer(name: String): Pair<ServerSocket, KeyStore> {
         val store = home.resolve("tls.p12")
-        val keytool = Path.of(System.getProperty("java.home"), "bin", "keytool").toString()
+        val exe = if (System.getProperty("os.name").startsWith("Windows")) ".exe" else ""
+        val keytool = Path.of(System.getProperty("java.home"), "bin", "keytool$exe").toString()
         val made = ProcessBuilder(
             keytool, "-genkeypair", "-keyalg", "EC", "-alias", "tun", "-dname", "CN=$name",
             "-ext", "san=dns:$name", "-validity", "1", "-storetype", "PKCS12",
