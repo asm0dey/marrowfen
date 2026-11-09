@@ -89,8 +89,10 @@ jobs:
       - name: The privacy tests ran, none skipped
         run: |
           xml=client/build/test-results/test/TEST-tun.client.LoginTest.xml
-          grep -o '<testcase name="login[^"]*0600[^"]*"' "$xml"
-          ! grep -q '<skipped' "$xml"
+          ran=$(grep -o '<testcase name="login[^"]*0600[^"]*"' "$xml" || true)
+          echo "$ran"
+          [ "$(echo "$ran" | grep -c .)" = "2" ] || { echo "expected 2 login 0600 tests in $xml"; exit 1; }
+          if grep -q '<skipped' "$xml"; then echo "a LoginTest was skipped"; exit 1; fi
       - name: Client smoke test
         run: .github/scripts/client-smoke.sh app/build/native/nativeCompile/tun
 
@@ -118,7 +120,9 @@ jobs:
       - name: The privacy tests ran, none skipped
         run: |
           xml=client/build/test-results/test/TEST-tun.client.LoginTest.xml
-          grep -o '<testcase name="login[^"]*0600[^"]*"' "$xml"
-          ! grep -q '<skipped' "$xml"
+          ran=$(grep -o '<testcase name="login[^"]*0600[^"]*"' "$xml" || true)
+          echo "$ran"
+          [ "$(echo "$ran" | grep -c .)" = "2" ] || { echo "expected 2 login 0600 tests in $xml"; exit 1; }
+          if grep -q '<skipped' "$xml"; then echo "a LoginTest was skipped"; exit 1; fi
       - name: Client smoke test
         run: .github/scripts/client-smoke.sh app/build/native/nativeCompile/tun.exe

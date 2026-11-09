@@ -17,6 +17,8 @@ app/build/native/nativeCompile/tun server          # loads /etc/tun/tun.toml, th
 ```
 
 On macOS arm64 and Windows amd64 only the client is supported (`tun login`, `tun http`); the server is Linux-only.
+CI does run `tun server` on those OSs, but only as a local test harness for the client smoke test; it is not supported
+there.
 Install the same GraalVM CE 25 build for that OS and point `JAVA_HOME` at it (on macOS, the JDK is under
 `Contents/Home`). On Windows, `native-image` also needs the Visual Studio 2022 Build Tools (the C++ workload), and the
 binary is `tun.exe`. CI builds and tests those two the same way:
@@ -27,7 +29,7 @@ app/build/native/nativeCompile/tun login wss://tun.example.com <token>   # tun.e
 ```
 
 `tun login` writes `tun/config.toml` in the user config directory, readable only by the user: Linux
-`$XDG_CONFIG_HOME` or `~/.config` and macOS `~/Library/Application Support`, both mode `0600`; Windows `%APPDATA%`,
+`$XDG_CONFIG_HOME` or `~/.config` and macOS `~/Library/Application Support`, both mode `0600` in a `0700` directory; Windows `%APPDATA%`,
 with an ACL holding one entry for the user and nothing inherited.
 
 No jar is shipped: the only distributable is the native `tun` binary.

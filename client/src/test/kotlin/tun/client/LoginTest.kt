@@ -167,10 +167,11 @@ class LoginTest {
     private fun assertOwnerAcl(file: Path) {
         val acl = Files.getFileAttributeView(file, AclFileAttributeView::class.java).acl
         val user = file.fileSystem.userPrincipalLookupService.lookupPrincipalByName(System.getProperty("user.name"))
-        val entry = acl.singleOrNull() ?: fail("expected one ACL entry, got $acl") // an inherited entry is a second one
+        // Java has no INHERITED flag: one entry rules out inherited ones here; icacls (I) in the smoke test proves it
+        val entry = acl.singleOrNull() ?: fail("expected one ACL entry, got $acl")
         assertEquals(AclEntryType.ALLOW, entry.type())
         assertEquals(user, entry.principal())
-        assertEquals(emptySet(), entry.flags(), "inheritance flags")
+        assertEquals(emptySet(), entry.flags(), "inheritable (propagating) flags")
     }
 
     private companion object {
