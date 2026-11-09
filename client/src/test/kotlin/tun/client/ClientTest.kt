@@ -76,14 +76,14 @@ class ClientTest {
         }) { port, stop ->
             login("ws://localhost:$port")
             val exit = async { http(listOf("8080")) }
-            awaitOut("$URL\n")
+            awaitOut(URL + System.lineSeparator()) // println writes \r\n on Windows
             assertEquals(Frame.Hello(1u, TOKEN, null, 262_144u, MAX_FRAME), runBlocking { hello.await() })
             Thread.sleep(600) // 6 ping intervals
             assertFalse(exit.isDone, "the client quit although the server pongs")
             stop()
             assertEquals(1, exit.get(TIMEOUT_S, TimeUnit.SECONDS))
             assertEquals("tun: lost the connection to ws://localhost:$port; run tun http again", err.toString().trim())
-            assertEquals("$URL\n", out.toString())
+            assertEquals(URL + System.lineSeparator(), out.toString())
         }
     }
 
